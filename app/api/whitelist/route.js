@@ -12,14 +12,13 @@ export async function GET() {
 
 export async function POST(req) {
   const supabase = createServiceClient();
-  const body = await req.json();
-  const { discord_id, full_name, rank, added_by } = body;
+  const { discord_id, full_name, rank, added_by, employee_id, callsign, join_date } = await req.json();
   if (!discord_id || !full_name || !rank) {
     return Response.json({ error: 'Câmpuri lipsă' }, { status: 400 });
   }
   const { data, error } = await supabase
     .from('whitelist')
-    .insert({ discord_id, full_name, rank, added_by })
+    .insert({ discord_id, full_name, rank, added_by, employee_id, callsign, join_date })
     .select().single();
   if (error) return Response.json({ error: error.message }, { status: 500 });
   return Response.json({ data });

@@ -158,3 +158,8 @@ alter table member_events   enable row level security;
 create policy "read events"    on events          for select using (true);
 create policy "read reactions" on event_reactions for select using (true);
 create policy "read member_events" on member_events for select using (true);
+
+-- Coloane noi pentru whitelist
+alter table whitelist add column if not exists employee_id text default '';
+alter table whitelist add column if not exists callsign    text default '';
+alter table whitelist add column if not exists join_date   timestamptz;

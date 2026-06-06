@@ -51,6 +51,17 @@ export default function Dashboard() {
     const u = JSON.parse(stored);
     setUser(u);
     fetchAll(u);
+
+    // Realtime membri
+    const ch = supabase
+      .channel('dashboard-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, () => fetchAll(u))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => fetchAll(u))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, () => fetchAll(u))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'system_updates' }, () => fetchAll(u))
+      .subscribe();
+
+    return () => supabase.removeChannel(ch);
   }, []);
 
   async function fetchAll(u) {
@@ -83,7 +94,6 @@ export default function Dashboard() {
 
       // Recent members (last 5)
       const recent = [...members]
-        .filter(m => !EXCLUDE.includes(m.rank))
         .sort((a, b) => new Date(b.join_date) - new Date(a.join_date))
         .slice(0, 5);
 

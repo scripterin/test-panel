@@ -5,44 +5,43 @@ import { useRouter } from 'next/navigation';
 import styles from './whitelist.module.css';
 
 const GRADE_OPTIONS = ['Membru PR', 'Adjunct PR', 'Manager PR', 'Supervizor PR', 'Conducere Spital'];
-
-const GRADE_COLORS = {
+const GRADE_COLORS  = {
   'Membru PR':        '#8b5cf6',
   'Adjunct PR':       '#6366f1',
   'Manager PR':       '#f59e0b',
   'Supervizor PR':    '#3b82f6',
   'Conducere Spital': '#10b981',
 };
-
-const EMPTY_FORM = { discord_id: '', full_name: '', rank: 'Membru PR', };
+const EMPTY_FORM = { discord_id: '', full_name: '', rank: 'Membru PR', employee_id: '', callsign: '', join_date: '' };
 
 export default function WhitelistPage() {
-  const router  = useRouter();
-  const [user,      setUser]      = useState(null);
-  const [list,      setList]      = useState([]);
-  const [loading,   setLoading]   = useState(true);
-  const [search,    setSearch]    = useState('');
-  const [addModal,  setAddModal]  = useState(false);
-  const [editTarget,setEditTarget]= useState(null);
-  const [form,      setForm]      = useState(EMPTY_FORM);
-  const [saving,    setSaving]    = useState(false);
-  const [delTarget, setDelTarget] = useState(null);
-  const [toast,     setToast]     = useState(null);
+  const router = useRouter();
+  const [user,       setUser]       = useState(null);
+  const [list,       setList]       = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [search,     setSearch]     = useState('');
+  const [addModal,   setAddModal]   = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const [form,       setForm]       = useState(EMPTY_FORM);
+  const [saving,     setSaving]     = useState(false);
+  const [delTarget,  setDelTarget]  = useState(null);
+  const [toast,      setToast]      = useState(null);
   const toastRef = useRef();
 
   useEffect(() => {
     const stored = sessionStorage.getItem('pr_user');
     if (!stored) { router.replace('/'); return; }
     const u = JSON.parse(stored);
-    // Doar admin sau Manager PR poate accesa
-    if (!['Adjunct PR', 'Manager PR', 'Supervizor PR', 'Conducere Spital'].includes(u.rank)) { router.replace('/dashboard'); return; }
+    if (!['Adjunct PR', 'Manager PR', 'Supervizor PR', 'Conducere Spital'].includes(u.rank)) {
+      router.replace('/dashboard'); return;
+    }
     setUser(u);
     fetchList();
   }, []);
 
   async function fetchList() {
     setLoading(true);
-    const res = await fetch('/api/whitelist');
+    const res  = await fetch('/api/whitelist');
     const json = await res.json();
     setList(json.data || []);
     setLoading(false);
@@ -59,38 +58,28 @@ export default function WhitelistPage() {
       showToast('Discord ID și Nume sunt obligatorii.', 'error'); return;
     }
     setSaving(true);
-    const res = await fetch('/api/whitelist', {
+    const res  = await fetch('/api/whitelist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...form, added_by: user.full_name }),
     });
     const json = await res.json();
     if (!res.ok) showToast(json.error || 'Eroare.', 'error');
-    else {
-      showToast('Membru adăugat în whitelist!');
-      setAddModal(false);
-      setForm(EMPTY_FORM);
-      fetchList();
-    }
+    else { showToast('Adăugat în whitelist!'); setAddModal(false); setForm(EMPTY_FORM); fetchList(); }
     setSaving(false);
   }
 
   async function submitEdit() {
     if (!editTarget) return;
     setSaving(true);
-    const res = await fetch('/api/whitelist', {
+    const res  = await fetch('/api/whitelist', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: editTarget.id, ...form }),
     });
     const json = await res.json();
     if (!res.ok) showToast(json.error || 'Eroare.', 'error');
-    else {
-      showToast('Modificat cu succes!');
-      setEditTarget(null);
-      setForm(EMPTY_FORM);
-      fetchList();
-    }
+    else { showToast('Modificat!'); setEditTarget(null); setForm(EMPTY_FORM); fetchList(); }
     setSaving(false);
   }
 
@@ -102,31 +91,111 @@ export default function WhitelistPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: delTarget.id }),
     });
-    if (res.ok) {
-      showToast('Eliminat din whitelist.');
-      setDelTarget(null);
-      fetchList();
-    } else showToast('Eroare la ștergere.', 'error');
+    if (res.ok) { showToast('Eliminat din whitelist.'); setDelTarget(null); fetchList(); }
+    else showToast('Eroare la ștergere.', 'error');
     setSaving(false);
   }
 
   function openEdit(entry) {
     setEditTarget(entry);
-    setForm({ discord_id: entry.discord_id, full_name: entry.full_name, rank: entry.rank });
+    setForm({
+      discord_id:  entry.discord_id  || '',
+      full_name:   entry.full_name   || '',
+      rank:        entry.rank        || 'Membru PR',
+      employee_id: entry.employee_id || '',
+      callsign:    entry.callsign    || '',
+      join_date:   entry.join_date   ? entry.join_date.split('T')[0] : '',
+    });
   }
 
   const filtered = list.filter(e => {
     const q = search.toLowerCase();
-    return e.full_name?.toLowerCase().includes(q) || e.discord_id?.includes(q) || e.rank?.toLowerCase().includes(q);
+    return e.full_name?.toLowerCase().includes(q) || e.discord_id?.includes(q) || e.rank?.toLowerCase().includes(q) || e.callsign?.toLowerCase().includes(q);
   });
 
   function logout() { sessionStorage.removeItem('pr_user'); router.replace('/'); }
+
+  const FormModal = ({ title, onSubmit }) => (
+    <div className={styles.overlay} onClick={() => { setAddModal(false); setEditTarget(null); }}>
+      <div className={styles.modal} onClick={e => e.stopPropagation()}>
+        <div className={styles.modalHeader}>
+          <h3>{title}</h3>
+          <button className={styles.modalClose} onClick={() => { setAddModal(false); setEditTarget(null); }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="15" height="15"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div className={styles.formGrid}>
+          <div className={styles.field}>
+            <label className={styles.label}>Discord ID *</label>
+            <input className={styles.input} placeholder="ex: 123456789012345678"
+              value={form.discord_id} onChange={e => setForm(f => ({ ...f, discord_id: e.target.value }))}/>
+            <span className={styles.hint}>Settings → Advanced → Developer Mode → click dreapta → Copy ID</span>
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label}>Nume Complet *</label>
+            <input className={styles.input} placeholder="Prenume Nume"
+              value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))}/>
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label}>Grad</label>
+            <select className={styles.select} value={form.rank} onChange={e => setForm(f => ({ ...f, rank: e.target.value }))}>
+              {GRADE_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label}>ID Angajat</label>
+            <input className={styles.input} placeholder="ex: PR-001"
+              value={form.employee_id} onChange={e => setForm(f => ({ ...f, employee_id: e.target.value }))}/>
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label}>Callsign</label>
+            <input className={styles.input} placeholder="ex: PR-7"
+              value={form.callsign} onChange={e => setForm(f => ({ ...f, callsign: e.target.value }))}/>
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label}>Data Intrării</label>
+            <input type="date" className={styles.input}
+              value={form.join_date} onChange={e => setForm(f => ({ ...f, join_date: e.target.value }))}/>
+          </div>
+        </div>
+
+        {/* Preview */}
+        <div className={styles.preview}>
+          <div className={styles.previewLabel}>Preview</div>
+          <div className={styles.previewCard}>
+            <div className={styles.previewAvatar}>
+              {form.full_name ? form.full_name.split(' ').map(w => w[0]).slice(0, 2).join('') : '?'}
+            </div>
+            <div className={styles.previewInfo}>
+              <span className={styles.previewName}>{form.full_name || 'Nume Complet'}</span>
+              <div className={styles.previewMeta}>
+                {form.callsign && <span className={styles.csBadge}>{form.callsign}</span>}
+                <span className={styles.previewId}>{form.discord_id || 'Discord ID'}</span>
+              </div>
+            </div>
+            <div className={styles.previewRight}>
+              <span className={styles.gradeBadge} style={{ color: GRADE_COLORS[form.rank], background: GRADE_COLORS[form.rank] + '18', borderColor: GRADE_COLORS[form.rank] + '44' }}>
+                {form.rank}
+              </span>
+              {form.employee_id && <span className={styles.empId}>{form.employee_id}</span>}
+            </div>
+          </div>
+        </div>
+
+        <div className={styles.modalFooter}>
+          <button className={styles.cancelBtn} onClick={() => { setAddModal(false); setEditTarget(null); }}>Anulează</button>
+          <button className={styles.saveBtn} onClick={onSubmit} disabled={saving}>
+            {saving ? <><span className={styles.savingDot}/>Se salvează...</> : title.includes('Adaugă') ? '+ Adaugă' : '✓ Salvează'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className={styles.root}>
       <div className={styles.bgOrb1}/><div className={styles.bgOrb2}/><div className={styles.bgGrid}/>
 
-      {/* SIDEBAR */}
       <aside className={styles.sidebar}>
         <div className={styles.sideTop}>
           <div className={styles.sideLogo}>
@@ -167,7 +236,6 @@ export default function WhitelistPage() {
         </div>
       </aside>
 
-      {/* MAIN */}
       <main className={styles.main}>
         <header className={styles.header}>
           <div>
@@ -177,7 +245,7 @@ export default function WhitelistPage() {
           <div className={styles.headerRight}>
             <div className={styles.searchWrap}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input className={styles.searchInput} placeholder="Caută după nume, ID, grad..." value={search} onChange={e => setSearch(e.target.value)}/>
+              <input className={styles.searchInput} placeholder="Caută..." value={search} onChange={e => setSearch(e.target.value)}/>
               {search && <button className={styles.searchClear} onClick={() => setSearch('')}>✕</button>}
             </div>
             <button className={styles.addBtn} onClick={() => { setForm(EMPTY_FORM); setAddModal(true); }}>
@@ -187,7 +255,7 @@ export default function WhitelistPage() {
           </div>
         </header>
 
-        {/* Stats bar */}
+        {/* Stats */}
         <div className={styles.statsBar}>
           {GRADE_OPTIONS.map(g => {
             const count = list.filter(e => e.rank === g).length;
@@ -200,10 +268,8 @@ export default function WhitelistPage() {
               </div>
             );
           })}
-
         </div>
 
-        {/* Table */}
         <div className={styles.tableWrap}>
           {loading ? (
             <div className={styles.loadState}><div className={styles.spinner}/><span>Se încarcă...</span></div>
@@ -216,13 +282,9 @@ export default function WhitelistPage() {
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>#</th>
-                  <th>Nume Complet</th>
-                  <th>Discord ID</th>
-                  <th>Grad</th>
-                  <th>Adăugat de</th>
-                  <th>Data</th>
-                  <th style={{ textAlign: 'right' }}>Acțiuni</th>
+                  <th>#</th><th>Nume Complet</th><th>Discord ID</th><th>Grad</th>
+                  <th>ID Angajat</th><th>Callsign</th><th>Data Intrării</th>
+                  <th>Adăugat de</th><th style={{ textAlign: 'right' }}>Acțiuni</th>
                 </tr>
               </thead>
               <tbody>
@@ -231,20 +293,15 @@ export default function WhitelistPage() {
                   return (
                     <tr key={e.id} className={styles.row} style={{ animationDelay: `${i * .03}s` }}>
                       <td className={styles.rowNum}>{i + 1}</td>
-                      <td>
-                        <span className={styles.fullName}>{e.full_name}</span>
-                      </td>
+                      <td><span className={styles.fullName}>{e.full_name}</span></td>
                       <td className={styles.mono}>{e.discord_id}</td>
                       <td>
-                        <span className={styles.gradeBadge} style={{ color, background: color + '18', borderColor: color + '44' }}>
-                          {e.rank}
-                        </span>
+                        <span className={styles.gradeBadge} style={{ color, background: color + '18', borderColor: color + '44' }}>{e.rank}</span>
                       </td>
-
+                      <td className={styles.mono}>{e.employee_id || <span className={styles.dash}>—</span>}</td>
+                      <td>{e.callsign ? <span className={styles.csBadge}>{e.callsign}</span> : <span className={styles.dash}>—</span>}</td>
+                      <td className={styles.dateCell}>{e.join_date ? new Date(e.join_date).toLocaleDateString('ro-RO') : <span className={styles.dash}>—</span>}</td>
                       <td className={styles.addedBy}>{e.added_by || '—'}</td>
-                      <td className={styles.dateCell}>
-                        {e.created_at ? new Date(e.created_at).toLocaleDateString('ro-RO') : '—'}
-                      </td>
                       <td>
                         <div className={styles.actions}>
                           <button className={styles.editBtn} onClick={() => openEdit(e)}>
@@ -252,7 +309,7 @@ export default function WhitelistPage() {
                             Editează
                           </button>
                           <button className={styles.delBtn} onClick={() => setDelTarget(e)}>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
                           </button>
                         </div>
                       </td>
@@ -265,73 +322,13 @@ export default function WhitelistPage() {
         </div>
       </main>
 
-      {/* ── ADD / EDIT MODAL ── */}
       {(addModal || editTarget) && (
-        <div className={styles.overlay} onClick={() => { setAddModal(false); setEditTarget(null); }}>
-          <div className={styles.modal} onClick={e => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h3>{editTarget ? 'Editează Intrare' : 'Adaugă în Whitelist'}</h3>
-              <button className={styles.modalClose} onClick={() => { setAddModal(false); setEditTarget(null); }}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="15" height="15"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-
-            <div className={styles.formGrid}>
-              <div className={styles.field}>
-                <label className={styles.label}>Discord ID *</label>
-                <input className={styles.input} placeholder="ex: 123456789012345678"
-                  value={form.discord_id} onChange={e => setForm(f => ({ ...f, discord_id: e.target.value }))}/>
-                <span className={styles.hint}>Activează Developer Mode în Discord → click dreapta pe user → Copy ID</span>
-              </div>
-
-              <div className={styles.field}>
-                <label className={styles.label}>Nume Complet *</label>
-                <input className={styles.input} placeholder="Prenume Nume"
-                  value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))}/>
-              </div>
-
-              <div className={styles.field}>
-                <label className={styles.label}>Grad</label>
-                <select className={styles.select} value={form.rank} onChange={e => setForm(f => ({ ...f, rank: e.target.value }))}>
-                  {GRADE_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
-                </select>
-              </div>
-
-            </div>
-
-            {/* Preview card */}
-            <div className={styles.preview}>
-              <div className={styles.previewLabel}>Preview intrare</div>
-              <div className={styles.previewCard}>
-                <div className={styles.previewAvatar}>
-                  {form.full_name ? form.full_name.split(' ').map(w => w[0]).slice(0, 2).join('') : '?'}
-                </div>
-                <div className={styles.previewInfo}>
-                  <span className={styles.previewName}>{form.full_name || 'Nume Complet'}</span>
-                  <span className={styles.previewId}>{form.discord_id || 'Discord ID'}</span>
-                </div>
-                <div className={styles.previewRight}>
-                  <span className={styles.gradeBadge} style={{ color: GRADE_COLORS[form.rank], background: GRADE_COLORS[form.rank] + '18', borderColor: GRADE_COLORS[form.rank] + '44' }}>
-                    {form.rank}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.modalFooter}>
-              <button className={styles.cancelBtn} onClick={() => { setAddModal(false); setEditTarget(null); }}>Anulează</button>
-              <button className={styles.saveBtn} onClick={editTarget ? submitEdit : submitAdd} disabled={saving}>
-                {saving
-                  ? <><span className={styles.savingDot}/>Se salvează...</>
-                  : editTarget ? '✓ Salvează' : '+ Adaugă în Whitelist'
-                }
-              </button>
-            </div>
-          </div>
-        </div>
+        <FormModal
+          title={editTarget ? 'Editează Intrare' : 'Adaugă în Whitelist'}
+          onSubmit={editTarget ? submitEdit : submitAdd}
+        />
       )}
 
-      {/* ── DELETE CONFIRM ── */}
       {delTarget && (
         <div className={styles.overlay} onClick={() => setDelTarget(null)}>
           <div className={styles.confirmModal} onClick={e => e.stopPropagation()}>
@@ -339,9 +336,7 @@ export default function WhitelistPage() {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="28" height="28"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             </div>
             <h3 className={styles.confirmTitle}>Elimini din whitelist?</h3>
-            <p className={styles.confirmSub}>
-              <strong>{delTarget.full_name}</strong> nu va mai putea accesa panelul după eliminare.
-            </p>
+            <p className={styles.confirmSub}><strong>{delTarget.full_name}</strong> nu va mai putea accesa panelul.</p>
             <div className={styles.confirmActions}>
               <button className={styles.cancelBtn} onClick={() => setDelTarget(null)}>Anulează</button>
               <button className={styles.deleteBtn} onClick={confirmDelete} disabled={saving}>
