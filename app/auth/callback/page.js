@@ -1,12 +1,13 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function AuthCallback() {
-  const router      = useRouter();
-  const params      = useSearchParams();
-  const calledRef   = useRef(false);
+function CallbackInner() {
+  const router    = useRouter();
+  const params    = useSearchParams();
+  const calledRef = useRef(false);
 
   useEffect(() => {
     if (calledRef.current) return;
@@ -22,10 +23,7 @@ export default function AuthCallback() {
     })
       .then(r => r.json())
       .then(data => {
-        if (data.error === 'not_whitelisted') {
-          router.replace('/?denied=1');
-          return;
-        }
+        if (data.error === 'not_whitelisted') { router.replace('/?denied=1'); return; }
         if (data.member) {
           sessionStorage.setItem('pr_user', JSON.stringify(data.member));
           router.replace('/dashboard');
@@ -38,18 +36,26 @@ export default function AuthCallback() {
 
   return (
     <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: '#050308',
-      gap: 20,
+      minHeight:'100vh', display:'flex', flexDirection:'column',
+      alignItems:'center', justifyContent:'center',
+      background:'#050308', gap:20,
     }}>
-      <div className="cb-spinner" />
-      <p style={{ color: '#4A4560', fontSize: 13, letterSpacing: '.5px', fontFamily: 'var(--font-body)' }}>
+      <div className="cb-spinner"/>
+      <p style={{ color:'#4A4560', fontSize:13, letterSpacing:'.5px', fontFamily:'var(--font-body)' }}>
         Se verifică accesul...
       </p>
     </div>
+  );
+}
+
+export default function AuthCallback() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#050308' }}>
+        <div className="cb-spinner"/>
+      </div>
+    }>
+      <CallbackInner/>
+    </Suspense>
   );
 }
