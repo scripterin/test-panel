@@ -11,7 +11,7 @@ function getRedirectUri() {
   if (typeof window === 'undefined') return '';
   return window.location.hostname === 'localhost'
     ? 'https://test-panel-alpha.vercel.app/auth/callback'
-    : `${process.env.NEXT_PUBLIC_SITE_URL || 'https://test-panel-alpha.vercel.app'}/auth/callback`;
+    : `${process.env.NEXT_PUBLIC_SITE_URL || 'https://test-panel-alpha.vercel.app/'}/auth/callback`;
 }
 
 function LoginInner() {
