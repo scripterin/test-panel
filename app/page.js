@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import styles from './page.module.css';
 
-const CLIENT_ID = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || 'PUNE_CLIENT_ID_AICI';
+const CLIENT_ID = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || '1479877035919937607';
 
 function getRedirectUri() {
   if (typeof window === 'undefined') return '';
