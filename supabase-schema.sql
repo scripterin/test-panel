@@ -163,3 +163,12 @@ create policy "read member_events" on member_events for select using (true);
 alter table whitelist add column if not exists employee_id text default '';
 alter table whitelist add column if not exists callsign    text default '';
 alter table whitelist add column if not exists join_date   timestamptz;
+
+-- Activează Realtime pe toate tabelele necesare
+-- Rulează în Supabase → SQL Editor
+alter publication supabase_realtime add table members;
+alter publication supabase_realtime add table events;
+alter publication supabase_realtime add table event_reactions;
+alter publication supabase_realtime add table announcements;
+alter publication supabase_realtime add table system_updates;
+alter publication supabase_realtime add table whitelist;

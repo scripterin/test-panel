@@ -14,6 +14,90 @@ const GRADE_COLORS  = {
 };
 const EMPTY_FORM = { discord_id: '', full_name: '', rank: 'Membru PR', employee_id: '', callsign: '', join_date: '' };
 
+function FormModal({ title, onSubmit, form, setForm, saving, onClose }) {
+  const GRADE_OPTIONS = ['Membru PR', 'Adjunct PR', 'Manager PR', 'Supervizor PR', 'Conducere Spital'];
+  const GRADE_COLORS  = {
+    'Membru PR':        '#8b5cf6',
+    'Adjunct PR':       '#6366f1',
+    'Manager PR':       '#f59e0b',
+    'Supervizor PR':    '#3b82f6',
+    'Conducere Spital': '#10b981',
+  };
+  return (
+    <div className={styles.overlay} onClick={onClose}>
+      <div className={styles.modal} onClick={e => e.stopPropagation()}>
+        <div className={styles.modalHeader}>
+          <h3>{title}</h3>
+          <button className={styles.modalClose} onClick={onClose}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="15" height="15"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div className={styles.formGrid}>
+          <div className={styles.field}>
+            <label className={styles.label}>Discord ID *</label>
+            <input className={styles.input} placeholder="ex: 123456789012345678"
+              value={form.discord_id} onChange={e => setForm(f => ({ ...f, discord_id: e.target.value }))}/>
+            <span className={styles.hint}>Settings → Advanced → Developer Mode → click dreapta → Copy ID</span>
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label}>Nume Complet *</label>
+            <input className={styles.input} placeholder="Prenume Nume"
+              value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))}/>
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label}>Grad</label>
+            <select className={styles.select} value={form.rank} onChange={e => setForm(f => ({ ...f, rank: e.target.value }))}>
+              {GRADE_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label}>ID Angajat</label>
+            <input className={styles.input} placeholder="ex: PR-001"
+              value={form.employee_id} onChange={e => setForm(f => ({ ...f, employee_id: e.target.value }))}/>
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label}>Callsign</label>
+            <input className={styles.input} placeholder="ex: PR-7"
+              value={form.callsign} onChange={e => setForm(f => ({ ...f, callsign: e.target.value }))}/>
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label}>Data Intrării</label>
+            <input type="date" className={styles.input}
+              value={form.join_date} onChange={e => setForm(f => ({ ...f, join_date: e.target.value }))}/>
+          </div>
+        </div>
+        <div className={styles.preview}>
+          <div className={styles.previewLabel}>Preview</div>
+          <div className={styles.previewCard}>
+            <div className={styles.previewAvatar}>
+              {form.full_name ? form.full_name.split(' ').map(w => w[0]).slice(0, 2).join('') : '?'}
+            </div>
+            <div className={styles.previewInfo}>
+              <span className={styles.previewName}>{form.full_name || 'Nume Complet'}</span>
+              <div className={styles.previewMeta}>
+                {form.callsign && <span className={styles.csBadge}>{form.callsign}</span>}
+                <span className={styles.previewId}>{form.discord_id || 'Discord ID'}</span>
+              </div>
+            </div>
+            <div className={styles.previewRight}>
+              <span className={styles.gradeBadge} style={{ color: GRADE_COLORS[form.rank], background: GRADE_COLORS[form.rank] + '18', borderColor: GRADE_COLORS[form.rank] + '44' }}>
+                {form.rank}
+              </span>
+              {form.employee_id && <span className={styles.empId}>{form.employee_id}</span>}
+            </div>
+          </div>
+        </div>
+        <div className={styles.modalFooter}>
+          <button className={styles.cancelBtn} onClick={onClose}>Anulează</button>
+          <button className={styles.saveBtn} onClick={onSubmit} disabled={saving}>
+            {saving ? <><span className={styles.savingDot}/>Se salvează...</> : title.includes('Adaugă') ? '+ Adaugă' : '✓ Salvează'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function WhitelistPage() {
   const router = useRouter();
   const [user,       setUser]       = useState(null);
@@ -115,82 +199,6 @@ export default function WhitelistPage() {
 
   function logout() { sessionStorage.removeItem('pr_user'); router.replace('/'); }
 
-  const FormModal = ({ title, onSubmit }) => (
-    <div className={styles.overlay} onClick={() => { setAddModal(false); setEditTarget(null); }}>
-      <div className={styles.modal} onClick={e => e.stopPropagation()}>
-        <div className={styles.modalHeader}>
-          <h3>{title}</h3>
-          <button className={styles.modalClose} onClick={() => { setAddModal(false); setEditTarget(null); }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="15" height="15"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        </div>
-        <div className={styles.formGrid}>
-          <div className={styles.field}>
-            <label className={styles.label}>Discord ID *</label>
-            <input className={styles.input} placeholder="ex: 123456789012345678"
-              value={form.discord_id} onChange={e => setForm(f => ({ ...f, discord_id: e.target.value }))}/>
-            <span className={styles.hint}>Settings → Advanced → Developer Mode → click dreapta → Copy ID</span>
-          </div>
-          <div className={styles.field}>
-            <label className={styles.label}>Nume Complet *</label>
-            <input className={styles.input} placeholder="Prenume Nume"
-              value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))}/>
-          </div>
-          <div className={styles.field}>
-            <label className={styles.label}>Grad</label>
-            <select className={styles.select} value={form.rank} onChange={e => setForm(f => ({ ...f, rank: e.target.value }))}>
-              {GRADE_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
-            </select>
-          </div>
-          <div className={styles.field}>
-            <label className={styles.label}>ID Angajat</label>
-            <input className={styles.input} placeholder="ex: PR-001"
-              value={form.employee_id} onChange={e => setForm(f => ({ ...f, employee_id: e.target.value }))}/>
-          </div>
-          <div className={styles.field}>
-            <label className={styles.label}>Callsign</label>
-            <input className={styles.input} placeholder="ex: PR-7"
-              value={form.callsign} onChange={e => setForm(f => ({ ...f, callsign: e.target.value }))}/>
-          </div>
-          <div className={styles.field}>
-            <label className={styles.label}>Data Intrării</label>
-            <input type="date" className={styles.input}
-              value={form.join_date} onChange={e => setForm(f => ({ ...f, join_date: e.target.value }))}/>
-          </div>
-        </div>
-
-        {/* Preview */}
-        <div className={styles.preview}>
-          <div className={styles.previewLabel}>Preview</div>
-          <div className={styles.previewCard}>
-            <div className={styles.previewAvatar}>
-              {form.full_name ? form.full_name.split(' ').map(w => w[0]).slice(0, 2).join('') : '?'}
-            </div>
-            <div className={styles.previewInfo}>
-              <span className={styles.previewName}>{form.full_name || 'Nume Complet'}</span>
-              <div className={styles.previewMeta}>
-                {form.callsign && <span className={styles.csBadge}>{form.callsign}</span>}
-                <span className={styles.previewId}>{form.discord_id || 'Discord ID'}</span>
-              </div>
-            </div>
-            <div className={styles.previewRight}>
-              <span className={styles.gradeBadge} style={{ color: GRADE_COLORS[form.rank], background: GRADE_COLORS[form.rank] + '18', borderColor: GRADE_COLORS[form.rank] + '44' }}>
-                {form.rank}
-              </span>
-              {form.employee_id && <span className={styles.empId}>{form.employee_id}</span>}
-            </div>
-          </div>
-        </div>
-
-        <div className={styles.modalFooter}>
-          <button className={styles.cancelBtn} onClick={() => { setAddModal(false); setEditTarget(null); }}>Anulează</button>
-          <button className={styles.saveBtn} onClick={onSubmit} disabled={saving}>
-            {saving ? <><span className={styles.savingDot}/>Se salvează...</> : title.includes('Adaugă') ? '+ Adaugă' : '✓ Salvează'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className={styles.root}>
@@ -326,6 +334,10 @@ export default function WhitelistPage() {
         <FormModal
           title={editTarget ? 'Editează Intrare' : 'Adaugă în Whitelist'}
           onSubmit={editTarget ? submitEdit : submitAdd}
+          form={form}
+          setForm={setForm}
+          saving={saving}
+          onClose={() => { setAddModal(false); setEditTarget(null); }}
         />
       )}
 
