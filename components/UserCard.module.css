@@ -1,36 +1,41 @@
-.wrap {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 100;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-}
-
+/* Buton înapoi — stânga sus fix */
 .backBtn {
-  display: flex; align-items: center; gap: 6px;
-  padding: 8px 14px; border-radius: 10px;
-  font-family: var(--font-body); font-size: 12px; font-weight: 600;
-  color: rgba(255,255,255,.5); background: rgba(12,8,20,.85);
-  border: 1px solid rgba(139,92,246,.2); cursor: pointer;
-  transition: all .15s; backdrop-filter: blur(12px);
+  position: fixed;
+  top: 24px; left: 24px;
+  z-index: 200;
+  display: flex; align-items: center; gap: 7px;
+  padding: 9px 16px; border-radius: 12px;
+  font-family: var(--font-body); font-size: 13px; font-weight: 600;
+  color: rgba(255,255,255,.55);
+  background: rgba(10,7,18,.85);
+  border: 1px solid rgba(139,92,246,.2);
+  cursor: pointer; transition: all .18s ease;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 4px 16px rgba(0,0,0,.4);
 }
-.backBtn:hover { color: #a78bfa; border-color: rgba(139,92,246,.4); }
+.backBtn:hover {
+  color: #a78bfa;
+  border-color: rgba(139,92,246,.45);
+  background: rgba(139,92,246,.1);
+  transform: translateX(-2px);
+}
 
+/* Card user — dreapta jos fix */
 .card {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  z-index: 200;
   display: flex; align-items: center; gap: 10px;
   padding: 10px 14px; border-radius: 14px;
-  background: rgba(12,8,20,.88); border: 1px solid rgba(139,92,246,.18);
+  background: rgba(10,7,18,.9);
+  border: 1px solid rgba(139,92,246,.18);
   backdrop-filter: blur(16px);
   box-shadow: 0 8px 24px rgba(0,0,0,.5);
 }
 
 .avatar {
-  width: 32px; height: 32px; border-radius: 9px;
-  object-fit: cover; border: 1px solid rgba(139,92,246,.3);
-  flex-shrink: 0;
+  width: 32px; height: 32px; border-radius: 50%;
+  object-fit: cover; border: 1px solid rgba(139,92,246,.3); flex-shrink: 0;
 }
 .info { display: flex; flex-direction: column; }
 .name { font-size: 12px; font-weight: 600; color: rgba(255,255,255,.82); white-space: nowrap; }

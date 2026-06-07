@@ -264,7 +264,9 @@ export default function HubPage() {
               key={node.id}
               className={`${styles.node} ${node.disabled ? styles.nodeDisabled : ''} ${isHov ? styles.nodeHovered : ''}`}
               style={{
-                transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
+                left: `calc(50% + ${x}px)`,
+                top: `calc(50% + ${y}px)`,
+                transform: 'translate(-50%, -50%)',
                 '--c': node.color,
               }}
               onMouseEnter={() => !node.disabled && setHovered(node.id)}
