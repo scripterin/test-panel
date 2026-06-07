@@ -1,0 +1,44 @@
+.wrap {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.backBtn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 10px;
+  font-family: var(--font-body); font-size: 12px; font-weight: 600;
+  color: rgba(255,255,255,.5); background: rgba(12,8,20,.85);
+  border: 1px solid rgba(139,92,246,.2); cursor: pointer;
+  transition: all .15s; backdrop-filter: blur(12px);
+}
+.backBtn:hover { color: #a78bfa; border-color: rgba(139,92,246,.4); }
+
+.card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-radius: 14px;
+  background: rgba(12,8,20,.88); border: 1px solid rgba(139,92,246,.18);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 8px 24px rgba(0,0,0,.5);
+}
+
+.avatar {
+  width: 32px; height: 32px; border-radius: 9px;
+  object-fit: cover; border: 1px solid rgba(139,92,246,.3);
+  flex-shrink: 0;
+}
+.info { display: flex; flex-direction: column; }
+.name { font-size: 12px; font-weight: 600; color: rgba(255,255,255,.82); white-space: nowrap; }
+.rank { font-size: 10px; color: rgba(255,255,255,.3); }
+
+.logoutBtn {
+  background: none; border: 1px solid rgba(255,255,255,.08);
+  border-radius: 8px; padding: 5px; color: rgba(255,255,255,.3);
+  display: flex; align-items: center; cursor: pointer; transition: all .15s;
+}
+.logoutBtn:hover { color: #ef4444; border-color: rgba(239,68,68,.3); background: rgba(239,68,68,.06); }

@@ -26,7 +26,7 @@ function CallbackInner() {
         if (data.error === 'not_whitelisted') { router.replace('/?denied=1'); return; }
         if (data.member) {
           sessionStorage.setItem('pr_user', JSON.stringify(data.member));
-          router.replace('/dashboard');
+          router.replace('/hub');
           return;
         }
         router.replace('/?error=1');

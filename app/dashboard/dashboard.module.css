@@ -110,7 +110,7 @@
 
 /* ── Main ── */
 .main {
-  margin-left: 240px; flex: 1; padding: 28px 32px;
+  margin-left: 0; flex: 1; padding: 28px 32px;
   position: relative; z-index: 1; min-height: 100vh;
   overflow-y: auto;
 }
