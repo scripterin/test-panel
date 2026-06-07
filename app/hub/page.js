@@ -1,72 +1,109 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import styles from './hub.module.css';
 
 const CAN_MANAGE = ['Adjunct PR', 'Manager PR', 'Supervizor PR', 'Conducere Spital'];
 
+const NODES = [
+  {
+    id: 'dashboard', label: 'Dashboard', path: '/dashboard',
+    icon: 'M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 3h2m2 0h2M19 14v2m0 2v2',
+    iconType: 'path',
+    color: '#8b5cf6', colorRgb: '139,92,246',
+    desc: 'Statistici & overview',
+    pos: { x: 0, y: -1 },
+    access: () => true,
+  },
+  {
+    id: 'members', label: 'Membri', path: '/members',
+    icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+    iconType: 'path',
+    color: '#6366f1', colorRgb: '99,102,241',
+    desc: 'Lista completă',
+    pos: { x: 0.866, y: -0.5 },
+    access: () => true,
+  },
+  {
+    id: 'events', label: 'Evenimente', path: '/events',
+    icon: 'M3 4h18a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM16 2v4M8 2v4M2 10h20',
+    iconType: 'path',
+    color: '#f59e0b', colorRgb: '245,158,11',
+    desc: 'Gestionare eventi',
+    pos: { x: 0.866, y: 0.5 },
+    access: () => true,
+  },
+  {
+    id: 'whitelist', label: 'Whitelist', path: '/whitelist',
+    icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+    iconType: 'path',
+    color: '#10b981', colorRgb: '16,185,129',
+    desc: 'Acces & permisiuni',
+    pos: { x: 0, y: 1 },
+    access: (rank) => CAN_MANAGE.includes(rank),
+  },
+  {
+    id: 'rapoarte', label: 'Rapoarte', path: '/reports',
+    icon: 'M18 20V10M12 20V4M6 20v-6',
+    iconType: 'path',
+    color: '#3b82f6', colorRgb: '59,130,246',
+    desc: 'Bilunar & statistici',
+    pos: { x: -0.866, y: 0.5 },
+    access: () => true,
+    soon: true,
+  },
+  {
+    id: 'info', label: 'Informații', path: '/info',
+    icon: 'M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zM12 8v4M12 16h.01',
+    iconType: 'path',
+    color: '#ec4899', colorRgb: '236,72,153',
+    desc: 'Regulament & reguli',
+    pos: { x: -0.866, y: -0.5 },
+    access: () => true,
+    soon: true,
+  },
+];
+
 export default function HubPage() {
-  const router  = useRouter();
-  const [user,  setUser]  = useState(null);
-  const [stats, setStats] = useState({ members: 0, active: 0, events: 0, weekEvents: 0 });
+  const router   = useRouter();
+  const [user,   setUser]   = useState(null);
+  const [stats,  setStats]  = useState({ members: 0, active: 0, events: 0, weekEvents: 0 });
   const [hovered, setHovered] = useState(null);
-  const [entering, setEntering] = useState(null);
+  const [leaving, setLeaving] = useState(false);
   const canvasRef = useRef(null);
+  const rafRef    = useRef(null);
 
   useEffect(() => {
     const stored = sessionStorage.getItem('pr_user');
     if (!stored) { router.replace('/'); return; }
-    setUser(JSON.parse(stored));
+    const u = JSON.parse(stored);
+    setUser(u);
     fetchStats();
-    initCanvas();
-  }, []);
+    startCanvas();
 
-  function initCanvas() {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let W = canvas.width  = window.innerWidth;
-    let H = canvas.height = window.innerHeight;
-    let raf;
-    const pts = Array.from({ length: 60 }, () => ({
-      x: Math.random() * W, y: Math.random() * H,
-      vx: (Math.random() - .5) * .25, vy: (Math.random() - .5) * .25,
-      r: Math.random() * 1.4 + .3, a: Math.random() * .6 + .2,
-    }));
-    function draw() {
-      ctx.clearRect(0, 0, W, H);
-      pts.forEach(p => {
-        p.x += p.vx; p.y += p.vy;
-        if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
-        if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(139,92,246,${p.a * .2})`;
-        ctx.fill();
-      });
-      for (let i = 0; i < pts.length; i++) {
-        for (let j = i + 1; j < pts.length; j++) {
-          const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y;
-          const d = Math.sqrt(dx*dx + dy*dy);
-          if (d < 110) {
-            ctx.beginPath();
-            ctx.moveTo(pts[i].x, pts[i].y);
-            ctx.lineTo(pts[j].x, pts[j].y);
-            ctx.strokeStyle = `rgba(139,92,246,${(1 - d/110) * .05})`;
-            ctx.lineWidth = .6;
-            ctx.stroke();
-          }
+    // Realtime — sync user grade changes
+    const ch = supabase.channel('hub-user-sync')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'members' }, (payload) => {
+        const s2 = sessionStorage.getItem('pr_user');
+        if (!s2) return;
+        const session = JSON.parse(s2);
+        if (session.discord_id === payload.new.discord_id) {
+          const updated = { ...session, ...payload.new };
+          sessionStorage.setItem('pr_user', JSON.stringify(updated));
+          setUser(updated);
         }
-      }
-      raf = requestAnimationFrame(draw);
-    }
-    draw();
-    const resize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; };
-    window.addEventListener('resize', resize);
-    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', resize); };
-  }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, fetchStats)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, fetchStats)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(ch);
+      cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
 
   async function fetchStats() {
     const [{ data: members }, { data: events }] = await Promise.all([
@@ -77,18 +114,63 @@ export default function HubPage() {
     const day = now.getDay() || 7;
     const mon = new Date(now); mon.setDate(now.getDate() - day + 1); mon.setHours(0,0,0,0);
     const sun = new Date(mon); sun.setDate(mon.getDate() + 6); sun.setHours(23,59,59,999);
-    const prMembers = (members || []).filter(m => !['Supervizor PR','Conducere Spital'].includes(m.rank));
+    const pr = (members||[]).filter(m => !['Supervizor PR','Conducere Spital'].includes(m.rank));
     setStats({
-      members:    prMembers.length,
-      active:     prMembers.filter(m => m.status === 'Activ' || m.status === 'activ').length,
-      events:     (events || []).length,
-      weekEvents: (events || []).filter(e => { const d = new Date(e.date); return d >= mon && d <= sun; }).length,
+      members:    pr.length,
+      active:     pr.filter(m => ['Activ','activ'].includes(m.status)).length,
+      events:     (events||[]).length,
+      weekEvents: (events||[]).filter(e => { const d = new Date(e.date); return d >= mon && d <= sun; }).length,
     });
   }
 
+  function startCanvas() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let W = canvas.width  = window.innerWidth;
+    let H = canvas.height = window.innerHeight;
+
+    const pts = Array.from({ length: 55 }, () => ({
+      x: Math.random()*W, y: Math.random()*H,
+      vx: (Math.random()-.5)*.18, vy: (Math.random()-.5)*.18,
+      r: Math.random()*1.2+.4, a: Math.random()*.5+.1,
+    }));
+
+    function draw() {
+      ctx.clearRect(0,0,W,H);
+      pts.forEach(p => {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x<0) p.x=W; if (p.x>W) p.x=0;
+        if (p.y<0) p.y=H; if (p.y>H) p.y=0;
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+        ctx.fillStyle = `rgba(139,92,246,${p.a*.18})`;
+        ctx.fill();
+      });
+      for (let i=0; i<pts.length; i++) {
+        for (let j=i+1; j<pts.length; j++) {
+          const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y;
+          const d=Math.sqrt(dx*dx+dy*dy);
+          if (d<120) {
+            ctx.beginPath();
+            ctx.moveTo(pts[i].x,pts[i].y);
+            ctx.lineTo(pts[j].x,pts[j].y);
+            ctx.strokeStyle=`rgba(139,92,246,${(1-d/120)*.04})`;
+            ctx.lineWidth=.5;
+            ctx.stroke();
+          }
+        }
+      }
+      rafRef.current = requestAnimationFrame(draw);
+    }
+    draw();
+    const onResize = () => { W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight; };
+    window.addEventListener('resize', onResize);
+  }
+
   function navigate(path) {
-    setEntering(path);
-    setTimeout(() => router.push(path), 350);
+    setLeaving(true);
+    setTimeout(() => router.push(path), 280);
   }
 
   function logout() {
@@ -96,222 +178,161 @@ export default function HubPage() {
     router.replace('/');
   }
 
-  if (!user) return null;
+  if (!user) return (
+    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#03020a' }}>
+      <div className="cb-spinner"/>
+    </div>
+  );
 
-  const canManage = CAN_MANAGE.includes(user.rank);
+  const RADIUS = 230;
+  const visibleNodes = NODES.filter(n => n.access(user.rank));
 
-  const NODES = [
-    {
-      id: 'dashboard',
-      label: 'Dashboard',
-      sub: 'Statistici & overview',
-      path: '/dashboard',
-      angle: 270, // top
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <rect x="3" y="3" width="7" height="7" rx="1.5"/>
-          <rect x="14" y="3" width="7" height="7" rx="1.5"/>
-          <rect x="3" y="14" width="7" height="7" rx="1.5"/>
-          <rect x="14" y="14" width="7" height="7" rx="1.5"/>
-        </svg>
-      ),
-      color: '#8b5cf6',
-      stat: `${stats.members} membri PR`,
-      access: true,
-    },
-    {
-      id: 'members',
-      label: 'Membri',
-      sub: 'Lista completă',
-      path: '/members',
-      angle: 330,
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-          <circle cx="9" cy="7" r="4"/>
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-        </svg>
-      ),
-      color: '#6366f1',
-      stat: `${stats.active} activi`,
-      access: true,
-    },
-    {
-      id: 'events',
-      label: 'Evenimente',
-      sub: 'Gestionare eventi',
-      path: '/events',
-      angle: 30,
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <rect x="3" y="4" width="18" height="18" rx="2"/>
-          <line x1="16" y1="2" x2="16" y2="6"/>
-          <line x1="8" y1="2" x2="8" y2="6"/>
-          <line x1="3" y1="10" x2="21" y2="10"/>
-        </svg>
-      ),
-      color: '#f59e0b',
-      stat: `${stats.weekEvents} săptămâna asta`,
-      access: true,
-    },
-    {
-      id: 'whitelist',
-      label: 'Whitelist',
-      sub: 'Acces & permisiuni',
-      path: '/whitelist',
-      angle: 90, // bottom
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-        </svg>
-      ),
-      color: '#10b981',
-      stat: 'Gestionare acces',
-      access: canManage,
-    },
-    {
-      id: 'rapoarte',
-      label: 'Rapoart Bilunar',
-      sub: 'În curând',
-      path: null,
-      angle: 150,
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <line x1="18" y1="20" x2="18" y2="10"/>
-          <line x1="12" y1="20" x2="12" y2="4"/>
-          <line x1="6" y1="20" x2="6" y2="14"/>
-        </svg>
-      ),
-      color: '#3b82f6',
-      stat: 'Coming soon',
-      access: true,
-      disabled: true,
-    },
-    {
-      id: 'setari',
-      label: 'Setări',
-      sub: 'În curând',
-      path: null,
-      angle: 210,
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="12" cy="12" r="3"/>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-        </svg>
-      ),
-      color: '#ec4899',
-      stat: 'Coming soon',
-      access: true,
-      disabled: true,
-    },
-  ].filter(n => n.access);
-
-  // Orbit radius responsive
-  const RADIUS = 240;
+  const statItems = [
+    { label: 'Membri PR', value: stats.members, color: '#8b5cf6' },
+    { label: 'Activi', value: stats.active, color: '#22c55e' },
+    { label: 'Evenimente', value: stats.events, color: '#f59e0b' },
+    { label: 'Săpt. asta', value: stats.weekEvents, color: '#3b82f6' },
+  ];
 
   return (
-    <div className={`${styles.root} ${entering ? styles.leaving : ''}`}>
+    <div className={`${styles.root} ${leaving ? styles.leaving : ''}`}>
       <canvas ref={canvasRef} className={styles.canvas}/>
-      <div className={styles.orb1}/><div className={styles.orb2}/><div className={styles.orb3}/>
-      <div className={styles.grid}/>
 
+      {/* Layered bg glows */}
+      <div className={styles.glow1}/>
+      <div className={styles.glow2}/>
+      <div className={styles.glow3}/>
+      <div className={styles.gridOverlay}/>
+
+      {/* Top bar */}
+      <header className={styles.topBar}>
+        <div className={styles.topLogo}>
+          <img src="/logo_pr.png" alt="PR" className={styles.topLogoImg}/>
+          <div>
+            <div className={styles.topLogoTitle}>Panel PR</div>
+            <div className={styles.topLogoSub}>Eclipse Medical Tower</div>
+          </div>
+        </div>
+        <div className={styles.topStats}>
+          {statItems.map(s => (
+            <div key={s.label} className={styles.topStat}>
+              <span className={styles.topStatVal} style={{ color: s.color }}>{s.value}</span>
+              <span className={styles.topStatLabel}>{s.label}</span>
+            </div>
+          ))}
+        </div>
+        <div className={styles.topUser}>
+          <div className={styles.topUserInfo}>
+            <span className={styles.topUserName}>{user.full_name}</span>
+            <span className={styles.topUserRank}>{user.rank}</span>
+          </div>
+          <img src={user.discord_avatar || '/logo_pr.png'} alt="" className={styles.topUserAvatar}/>
+          <button className={styles.topLogout} onClick={logout} title="Deconectare">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      {/* Main orbital scene */}
       <div className={styles.scene}>
-        {/* Orbit ring */}
-        <div className={styles.orbitRing}/>
-        <div className={styles.orbitRingInner}/>
+        {/* Rings */}
+        <div className={styles.ring1}/>
+        <div className={styles.ring2}/>
+        <div className={styles.ring3}/>
 
-        {/* Connection lines */}
-        <svg className={styles.lines} viewBox="-300 -300 600 600">
-          {NODES.map(node => {
-            const rad = (node.angle * Math.PI) / 180;
-            const x = Math.cos(rad) * RADIUS;
-            const y = Math.sin(rad) * RADIUS;
+        {/* SVG connectors */}
+        <svg className={styles.connectors} viewBox="-280 -280 560 560" xmlns="http://www.w3.org/2000/svg">
+          {visibleNodes.map(n => {
+            const x = n.pos.x * RADIUS;
+            const y = n.pos.y * RADIUS;
+            const isHov = hovered === n.id;
             return (
-              <line key={node.id}
-                x1="0" y1="0" x2={x} y2={y}
-                stroke={hovered === node.id ? node.color : 'rgba(139,92,246,0.12)'}
-                strokeWidth={hovered === node.id ? 1.5 : 0.8}
-                strokeDasharray={hovered === node.id ? 'none' : '4 6'}
-                style={{ transition: 'all .3s ease' }}
-              />
+              <g key={n.id}>
+                <line x1="0" y1="0" x2={x} y2={y}
+                  stroke={isHov ? n.color : 'rgba(139,92,246,0.1)'}
+                  strokeWidth={isHov ? 1.5 : 0.6}
+                  strokeDasharray={isHov ? '0' : '3 8'}
+                  style={{ transition: 'all .3s ease' }}
+                />
+                {isHov && (
+                  <circle cx={x*.5} cy={y*.5} r="2.5"
+                    fill={n.color} opacity="0.6"
+                    style={{ filter: `drop-shadow(0 0 4px ${n.color})` }}
+                  />
+                )}
+              </g>
             );
           })}
         </svg>
 
-        {/* Center Logo */}
+        {/* Center */}
         <div className={styles.center}>
-          <div className={styles.centerPulse}/>
-          <div className={styles.centerPulse2}/>
-          <div className={styles.centerLogo}>
-            <img src="/logo_pr.png" alt="PR"/>
+          <div className={styles.centerRing}/>
+          <div className={styles.centerRing2}/>
+          <div className={styles.centerImgWrap}>
+            <img src="/logo_pr.png" alt="PR" className={styles.centerImg}/>
+            <div className={styles.centerImgGlow}/>
           </div>
-          <div className={styles.centerGreet}>
-            Bun venit, <strong>{user.full_name.split(' ')[0]}</strong>
+          <div className={styles.centerText}>
+            <span className={styles.centerWelcome}>Bun venit</span>
+            <span className={styles.centerName}>{user.full_name.split(' ')[0]}</span>
           </div>
-          <div className={styles.centerRank}>{user.rank}</div>
         </div>
 
         {/* Nodes */}
-        {NODES.map(node => {
-          const rad   = (node.angle * Math.PI) / 180;
-          const x     = Math.cos(rad) * RADIUS;
-          const y     = Math.sin(rad) * RADIUS;
-          const isHov = hovered === node.id;
-
+        {visibleNodes.map(n => {
+          const x = n.pos.x * RADIUS;
+          const y = n.pos.y * RADIUS;
+          const isHov = hovered === n.id && !n.soon;
           return (
             <button
-              key={node.id}
-              className={`${styles.node} ${node.disabled ? styles.nodeDisabled : ''} ${isHov ? styles.nodeHovered : ''}`}
+              key={n.id}
+              className={`${styles.node} ${isHov ? styles.nodeHov : ''} ${n.soon ? styles.nodeSoon : ''}`}
               style={{
                 left: `calc(50% + ${x}px)`,
-                top: `calc(50% + ${y}px)`,
-                transform: 'translate(-50%, -50%)',
-                '--c': node.color,
+                top:  `calc(50% + ${y}px)`,
+                '--c':    n.color,
+                '--crgb': n.colorRgb,
+                animationDelay: `${visibleNodes.indexOf(n) * .07}s`,
               }}
-              onMouseEnter={() => !node.disabled && setHovered(node.id)}
+              onMouseEnter={() => !n.soon && setHovered(n.id)}
               onMouseLeave={() => setHovered(null)}
-              onClick={() => !node.disabled && node.path && navigate(node.path)}
+              onClick={() => !n.soon && navigate(n.path)}
             >
-              <div className={styles.nodeIcon} style={{ color: node.color }}>
-                {node.icon}
-              </div>
-              <div className={styles.nodeText}>
-                <span className={styles.nodeLabel}>{node.label}</span>
-                <span className={styles.nodeStat}>{node.stat}</span>
-              </div>
-              {isHov && !node.disabled && (
-                <div className={styles.nodeArrow}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="12" height="12">
-                    <polyline points="9 18 15 12 9 6"/>
+              <div className={styles.nodeInner}>
+                <div className={styles.nodeIcon}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="20" height="20">
+                    <path d={n.icon} strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </div>
-              )}
-              <div className={styles.nodeGlow} style={{ background: `radial-gradient(circle, ${node.color}22, transparent 70%)` }}/>
+                <div className={styles.nodeContent}>
+                  <span className={styles.nodeLabel}>{n.label}</span>
+                  <span className={styles.nodeDesc}>{n.soon ? '— în curând —' : n.desc}</span>
+                </div>
+                {!n.soon && (
+                  <div className={styles.nodeChevron}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="11" height="11">
+                      <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                  </div>
+                )}
+              </div>
+              <div className={styles.nodeGlow}/>
+              <div className={styles.nodeBorder}/>
             </button>
           );
         })}
       </div>
 
-      {/* User card bottom right */}
-      <div className={styles.userCard}>
-        <img src={user.discord_avatar || '/logo_pr.png'} alt="" className={styles.userAvatar}/>
-        <div className={styles.userInfo}>
-          <span className={styles.userName}>{user.full_name}</span>
-          <span className={styles.userRank}>{user.rank}</span>
-        </div>
-        <button className={styles.logoutBtn} onClick={logout} title="Deconectare">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-            <polyline points="16 17 21 12 16 7"/>
-            <line x1="21" y1="12" x2="9" y2="12"/>
-          </svg>
-        </button>
-      </div>
-
       {/* Bottom tagline */}
-      <div className={styles.tagline}>
-        Panel PR · Eclipse Medical Tower · Sistem Management
+      <div className={styles.bottomBar}>
+        <span>Panel PR · Sistem Management</span>
+        <span className={styles.dot}>·</span>
+        <span>{new Date().toLocaleDateString('ro-RO', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}</span>
       </div>
     </div>
   );
