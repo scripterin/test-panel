@@ -172,7 +172,7 @@ export default function HubPage() {
     },
     {
       id: 'rapoarte',
-      label: 'Rapoarte',
+      label: 'Rapoart Bilunar',
       sub: 'În curând',
       path: null,
       angle: 150,
