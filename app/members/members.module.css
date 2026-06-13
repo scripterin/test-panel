@@ -1,7 +1,7 @@
 /* ── Root ── */
 .root {
   display: flex; min-height: 100vh;
-  background: #050308; font-family: var(--font-body);
+  background: #0a0820; font-family: var(--font-body);
   position: relative; overflow: hidden;
 }
 .bgOrb1 {
@@ -27,7 +27,7 @@
 /* ── Sidebar ── */
 .sidebar {
   position: fixed; left: 0; top: 0; bottom: 0; width: 240px; z-index: 100;
-  background: rgba(8,5,16,.92); border-right: 1px solid rgba(139,92,246,.1);
+  background: rgba(16,13,35,.92); border-right: 1px solid rgba(139,92,246,.1);
   backdrop-filter: blur(20px); display: flex; flex-direction: column;
   justify-content: space-between; padding: 24px 0 20px;
 }
@@ -76,7 +76,7 @@
 .headerSub { font-size: 12px; color: rgba(255,255,255,.3); }
 .headerSearch {
   display: flex; align-items: center; gap: 10px;
-  background: rgba(12,8,20,.8); border: 1px solid rgba(139,92,246,.15);
+  background: rgba(20,17,40,.8); border: 1px solid rgba(139,92,246,.15);
   border-radius: 12px; padding: 10px 14px; flex: 1; max-width: 380px; transition: border-color .2s;
 }
 .headerSearch:focus-within { border-color: rgba(139,92,246,.4); }
@@ -105,7 +105,7 @@
 
 /* ── Table ── */
 .tableWrap {
-  background: rgba(12,8,20,.7); border: 1px solid rgba(139,92,246,.1);
+  background: rgba(20,17,40,.7); border: 1px solid rgba(139,92,246,.1);
   border-radius: 14px; overflow: hidden; backdrop-filter: blur(12px);
 }
 .table { width: 100%; border-collapse: collapse; }
@@ -179,7 +179,7 @@
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .modal {
-  background: #0e0a1c; border: 1px solid rgba(139,92,246,.2);
+  background: #16133e; border: 1px solid rgba(139,92,246,.2);
   border-radius: 22px; padding: 28px; width: 560px; max-width: 95vw;
   max-height: 90vh; overflow-y: auto;
   box-shadow: 0 40px 80px rgba(0,0,0,.7);
@@ -222,7 +222,7 @@
 .input:focus, .select:focus, .textarea:focus { border-color: rgba(139,92,246,.5); background: rgba(139,92,246,.04); }
 .input::placeholder, .textarea::placeholder { color: rgba(255,255,255,.2); }
 .select { appearance: none; cursor: pointer; }
-.select option { background: #0e0a1c; }
+.select option { background: #16133e; }
 .textarea { resize: vertical; min-height: 80px; }
 
 .statusGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }

@@ -1,11 +1,44 @@
 'use client';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '../lib/supabase';
 import styles from './UserCard.module.css';
 
-export default function UserCard({ user, backTo = '/hub', title = '' }) {
+export default function UserCard({ user: initialUser, backTo = '/hub', title = '' }) {
   const router = useRouter();
+  const [user, setUser] = useState(initialUser);
+
+  useEffect(() => {
+    if (!initialUser?.discord_id) return;
+    
+    // Listen for rank/profile changes for current user
+    const ch = supabase.channel('usercard-sync-' + initialUser.discord_id)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'members',
+      }, (payload) => {
+        if (payload.new.discord_id === initialUser.discord_id) {
+          const stored = sessionStorage.getItem('pr_user');
+          if (stored) {
+            const session = JSON.parse(stored);
+            const updated = { ...session, ...payload.new };
+            sessionStorage.setItem('pr_user', JSON.stringify(updated));
+            setUser(updated);
+          }
+        }
+      })
+      .subscribe();
+    
+    return () => supabase.removeChannel(ch);
+  }, [initialUser?.discord_id]);
+
+  // Sync when initialUser prop changes (parent updated state)
+  useEffect(() => {
+    if (initialUser) setUser(initialUser);
+  }, [initialUser?.rank, initialUser?.full_name]);
+
   function logout() { sessionStorage.removeItem('pr_user'); router.replace('/'); }
   if (!user) return null;
+
   return (
     <header className={styles.bar}>
       <div className={styles.left}>

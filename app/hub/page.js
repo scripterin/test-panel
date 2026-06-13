@@ -1,79 +1,18 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import styles from './hub.module.css';
 
 const CAN_MANAGE = ['Adjunct PR', 'Manager PR', 'Supervizor PR', 'Conducere Spital'];
 
-const NODES = [
-  {
-    id: 'dashboard', label: 'Dashboard', path: '/dashboard',
-    icon: 'M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 3h2m2 0h2M19 14v2m0 2v2',
-    iconType: 'path',
-    color: '#8b5cf6', colorRgb: '139,92,246',
-    desc: 'Statistici & overview',
-    pos: { x: 0, y: -1 },
-    access: () => true,
-  },
-  {
-    id: 'members', label: 'Membri', path: '/members',
-    icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
-    iconType: 'path',
-    color: '#6366f1', colorRgb: '99,102,241',
-    desc: 'Lista completă',
-    pos: { x: 0.866, y: -0.5 },
-    access: () => true,
-  },
-  {
-    id: 'events', label: 'Evenimente', path: '/events',
-    icon: 'M3 4h18a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM16 2v4M8 2v4M2 10h20',
-    iconType: 'path',
-    color: '#f59e0b', colorRgb: '245,158,11',
-    desc: 'Gestionare eventi',
-    pos: { x: 0.866, y: 0.5 },
-    access: () => true,
-  },
-  {
-    id: 'whitelist', label: 'Whitelist', path: '/whitelist',
-    icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
-    iconType: 'path',
-    color: '#10b981', colorRgb: '16,185,129',
-    desc: 'Acces & permisiuni',
-    pos: { x: 0, y: 1 },
-    access: (rank) => CAN_MANAGE.includes(rank),
-  },
-  {
-    id: 'rapoarte', label: 'Rapoarte', path: '/reports',
-    icon: 'M18 20V10M12 20V4M6 20v-6',
-    iconType: 'path',
-    color: '#3b82f6', colorRgb: '59,130,246',
-    desc: 'Bilunar & statistici',
-    pos: { x: -0.866, y: 0.5 },
-    access: () => true,
-    soon: true,
-  },
-  {
-    id: 'info', label: 'Informații', path: '/info',
-    icon: 'M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zM12 8v4M12 16h.01',
-    iconType: 'path',
-    color: '#ec4899', colorRgb: '236,72,153',
-    desc: 'Regulament & reguli',
-    pos: { x: -0.866, y: -0.5 },
-    access: () => true,
-    soon: true,
-  },
-];
-
 export default function HubPage() {
-  const router   = useRouter();
-  const [user,   setUser]   = useState(null);
-  const [stats,  setStats]  = useState({ members: 0, active: 0, events: 0, weekEvents: 0 });
-  const [hovered, setHovered] = useState(null);
-  const [leaving, setLeaving] = useState(false);
-  const canvasRef = useRef(null);
-  const rafRef    = useRef(null);
+  const router = useRouter();
+  const [user, setUser] = useState(null);
+  const [stats, setStats] = useState({ members: 0, active: 0, events: 0, weekEvents: 0 });
+  const [leaving, setLeaving] = useState(null);
+  const [now, setNow] = useState(new Date());
 
   useEffect(() => {
     const stored = sessionStorage.getItem('pr_user');
@@ -81,28 +20,26 @@ export default function HubPage() {
     const u = JSON.parse(stored);
     setUser(u);
     fetchStats();
-    startCanvas();
 
-    // Realtime — sync user grade changes
-    const ch = supabase.channel('hub-user-sync')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'members' }, (payload) => {
+    const clock = setInterval(() => setNow(new Date()), 60000);
+
+    const ch = supabase.channel('hub-rt')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'members' }, (p) => {
         const s2 = sessionStorage.getItem('pr_user');
-        if (!s2) return;
-        const session = JSON.parse(s2);
-        if (session.discord_id === payload.new.discord_id) {
-          const updated = { ...session, ...payload.new };
-          sessionStorage.setItem('pr_user', JSON.stringify(updated));
-          setUser(updated);
+        if (s2) {
+          const ses = JSON.parse(s2);
+          if (ses.discord_id === p.new.discord_id) {
+            const upd = { ...ses, ...p.new };
+            sessionStorage.setItem('pr_user', JSON.stringify(upd));
+            setUser(upd);
+          }
         }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, fetchStats)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, fetchStats)
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(ch);
-      cancelAnimationFrame(rafRef.current);
-    };
+    return () => { supabase.removeChannel(ch); clearInterval(clock); };
   }, []);
 
   async function fetchStats() {
@@ -110,67 +47,22 @@ export default function HubPage() {
       supabase.from('members').select('status, rank'),
       supabase.from('events').select('date'),
     ]);
-    const now = new Date();
-    const day = now.getDay() || 7;
-    const mon = new Date(now); mon.setDate(now.getDate() - day + 1); mon.setHours(0,0,0,0);
+    const d = new Date();
+    const day = d.getDay() || 7;
+    const mon = new Date(d); mon.setDate(d.getDate() - day + 1); mon.setHours(0,0,0,0);
     const sun = new Date(mon); sun.setDate(mon.getDate() + 6); sun.setHours(23,59,59,999);
     const pr = (members||[]).filter(m => !['Supervizor PR','Conducere Spital'].includes(m.rank));
     setStats({
-      members:    pr.length,
-      active:     pr.filter(m => ['Activ','activ'].includes(m.status)).length,
-      events:     (events||[]).length,
-      weekEvents: (events||[]).filter(e => { const d = new Date(e.date); return d >= mon && d <= sun; }).length,
+      members: pr.length,
+      active: pr.filter(m => ['Activ','activ'].includes(m.status)).length,
+      events: (events||[]).length,
+      weekEvents: (events||[]).filter(e => { const dd = new Date(e.date); return dd >= mon && dd <= sun; }).length,
     });
   }
 
-  function startCanvas() {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let W = canvas.width  = window.innerWidth;
-    let H = canvas.height = window.innerHeight;
-
-    const pts = Array.from({ length: 55 }, () => ({
-      x: Math.random()*W, y: Math.random()*H,
-      vx: (Math.random()-.5)*.18, vy: (Math.random()-.5)*.18,
-      r: Math.random()*1.2+.4, a: Math.random()*.5+.1,
-    }));
-
-    function draw() {
-      ctx.clearRect(0,0,W,H);
-      pts.forEach(p => {
-        p.x += p.vx; p.y += p.vy;
-        if (p.x<0) p.x=W; if (p.x>W) p.x=0;
-        if (p.y<0) p.y=H; if (p.y>H) p.y=0;
-        ctx.beginPath();
-        ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-        ctx.fillStyle = `rgba(139,92,246,${p.a*.18})`;
-        ctx.fill();
-      });
-      for (let i=0; i<pts.length; i++) {
-        for (let j=i+1; j<pts.length; j++) {
-          const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y;
-          const d=Math.sqrt(dx*dx+dy*dy);
-          if (d<120) {
-            ctx.beginPath();
-            ctx.moveTo(pts[i].x,pts[i].y);
-            ctx.lineTo(pts[j].x,pts[j].y);
-            ctx.strokeStyle=`rgba(139,92,246,${(1-d/120)*.04})`;
-            ctx.lineWidth=.5;
-            ctx.stroke();
-          }
-        }
-      }
-      rafRef.current = requestAnimationFrame(draw);
-    }
-    draw();
-    const onResize = () => { W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight; };
-    window.addEventListener('resize', onResize);
-  }
-
-  function navigate(path) {
-    setLeaving(true);
-    setTimeout(() => router.push(path), 280);
+  function go(path) {
+    setLeaving(path);
+    setTimeout(() => router.push(path), 260);
   }
 
   function logout() {
@@ -179,55 +71,38 @@ export default function HubPage() {
   }
 
   if (!user) return (
-    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#03020a' }}>
+    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg)' }}>
       <div className="cb-spinner"/>
     </div>
   );
 
-  const RADIUS = 230;
-  const visibleNodes = NODES.filter(n => n.access(user.rank));
+  const greeting = (() => {
+    const h = now.getHours();
+    if (h < 12) return 'Bună dimineața';
+    if (h < 18) return 'Bună ziua';
+    return 'Bună seara';
+  })();
 
-  const statItems = [
-    { label: 'Membri PR', value: stats.members, color: '#8b5cf6' },
-    { label: 'Activi', value: stats.active, color: '#22c55e' },
-    { label: 'Evenimente', value: stats.events, color: '#f59e0b' },
-    { label: 'Săpt. asta', value: stats.weekEvents, color: '#3b82f6' },
-  ];
+  const canWhitelist = CAN_MANAGE.includes(user.rank);
 
   return (
     <div className={`${styles.root} ${leaving ? styles.leaving : ''}`}>
-      <canvas ref={canvasRef} className={styles.canvas}/>
-
-      {/* Layered bg glows */}
-      <div className={styles.glow1}/>
-      <div className={styles.glow2}/>
-      <div className={styles.glow3}/>
-      <div className={styles.gridOverlay}/>
+      <div className={styles.bgBlob1}/>
+      <div className={styles.bgBlob2}/>
 
       {/* Top bar */}
-      <header className={styles.topBar}>
-        <div className={styles.topLogo}>
-          <img src="/logo_pr.png" alt="PR" className={styles.topLogoImg}/>
-          <div>
-            <div className={styles.topLogoTitle}>Panel PR</div>
-            <div className={styles.topLogoSub}>Eclipse Medical Tower</div>
-          </div>
+      <header className={styles.topbar}>
+        <div className={styles.brand}>
+          <img src="/logo_pr.png" alt="PR" className={styles.brandLogo}/>
+          <span className={styles.brandText}>Panel PR</span>
         </div>
-        <div className={styles.topStats}>
-          {statItems.map(s => (
-            <div key={s.label} className={styles.topStat}>
-              <span className={styles.topStatVal} style={{ color: s.color }}>{s.value}</span>
-              <span className={styles.topStatLabel}>{s.label}</span>
-            </div>
-          ))}
-        </div>
-        <div className={styles.topUser}>
-          <div className={styles.topUserInfo}>
-            <span className={styles.topUserName}>{user.full_name}</span>
-            <span className={styles.topUserRank}>{user.rank}</span>
+        <div className={styles.userChip}>
+          <div className={styles.userText}>
+            <span className={styles.userName}>{user.full_name}</span>
+            <span className={styles.userRank}>{user.rank}</span>
           </div>
-          <img src={user.discord_avatar || '/logo_pr.png'} alt="" className={styles.topUserAvatar}/>
-          <button className={styles.topLogout} onClick={logout} title="Deconectare">
+          <img src={user.discord_avatar || '/logo_pr.png'} alt="" className={styles.userAvatar}/>
+          <button className={styles.logoutBtn} onClick={logout} title="Deconectare">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
               <polyline points="16 17 21 12 16 7"/>
@@ -237,103 +112,134 @@ export default function HubPage() {
         </div>
       </header>
 
-      {/* Main orbital scene */}
-      <div className={styles.scene}>
-        {/* Rings */}
-        <div className={styles.ring1}/>
-        <div className={styles.ring2}/>
-        <div className={styles.ring3}/>
+      {/* Bento grid */}
+      <main className={styles.grid}>
 
-        {/* SVG connectors */}
-        <svg className={styles.connectors} viewBox="-280 -280 560 560" xmlns="http://www.w3.org/2000/svg">
-          {visibleNodes.map(n => {
-            const x = n.pos.x * RADIUS;
-            const y = n.pos.y * RADIUS;
-            const isHov = hovered === n.id;
-            return (
-              <g key={n.id}>
-                <line x1="0" y1="0" x2={x} y2={y}
-                  stroke={isHov ? n.color : 'rgba(139,92,246,0.1)'}
-                  strokeWidth={isHov ? 1.5 : 0.6}
-                  strokeDasharray={isHov ? '0' : '3 8'}
-                  style={{ transition: 'all .3s ease' }}
-                />
-                {isHov && (
-                  <circle cx={x*.5} cy={y*.5} r="2.5"
-                    fill={n.color} opacity="0.6"
-                    style={{ filter: `drop-shadow(0 0 4px ${n.color})` }}
-                  />
-                )}
-              </g>
-            );
-          })}
-        </svg>
-
-        {/* Center */}
-        <div className={styles.center}>
-          <div className={styles.centerRing}/>
-          <div className={styles.centerRing2}/>
-          <div className={styles.centerImgWrap}>
-            <img src="/logo_pr.png" alt="PR" className={styles.centerImg}/>
-            <div className={styles.centerImgGlow}/>
+        {/* Hero / welcome */}
+        <div className={`${styles.cell} ${styles.hero}`}>
+          <div className={styles.heroTop}>
+            <span className={styles.heroGreeting}>{greeting},</span>
+            <h1 className={styles.heroName}>{user.full_name.split(' ')[0]}</h1>
           </div>
-          <div className={styles.centerText}>
-            <span className={styles.centerWelcome}>Bun venit</span>
-            <span className={styles.centerName}>{user.full_name.split(' ')[0]}</span>
+          <div className={styles.heroBottom}>
+            <div className={styles.heroDate}>
+              {now.toLocaleDateString('ro-RO', { weekday:'long', day:'numeric', month:'long' })}
+            </div>
+            <div className={styles.heroTime}>
+              {now.toLocaleTimeString('ro-RO', { hour:'2-digit', minute:'2-digit' })}
+            </div>
           </div>
+          <div className={styles.heroGlow}/>
         </div>
 
-        {/* Nodes */}
-        {visibleNodes.map(n => {
-          const x = n.pos.x * RADIUS;
-          const y = n.pos.y * RADIUS;
-          const isHov = hovered === n.id && !n.soon;
-          return (
-            <button
-              key={n.id}
-              className={`${styles.node} ${isHov ? styles.nodeHov : ''} ${n.soon ? styles.nodeSoon : ''}`}
-              style={{
-                left: `calc(50% + ${x}px)`,
-                top:  `calc(50% + ${y}px)`,
-                '--c':    n.color,
-                '--crgb': n.colorRgb,
-                animationDelay: `${visibleNodes.indexOf(n) * .07}s`,
-              }}
-              onMouseEnter={() => !n.soon && setHovered(n.id)}
-              onMouseLeave={() => setHovered(null)}
-              onClick={() => !n.soon && navigate(n.path)}
-            >
-              <div className={styles.nodeInner}>
-                <div className={styles.nodeIcon}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="20" height="20">
-                    <path d={n.icon} strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-                <div className={styles.nodeContent}>
-                  <span className={styles.nodeLabel}>{n.label}</span>
-                  <span className={styles.nodeDesc}>{n.soon ? '— în curând —' : n.desc}</span>
-                </div>
-                {!n.soon && (
-                  <div className={styles.nodeChevron}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="11" height="11">
-                      <polyline points="9 18 15 12 9 6"/>
-                    </svg>
-                  </div>
-                )}
-              </div>
-              <div className={styles.nodeGlow}/>
-              <div className={styles.nodeBorder}/>
-            </button>
-          );
-        })}
-      </div>
+        {/* Stat: members */}
+        <div className={`${styles.cell} ${styles.statCell}`}>
+          <span className={styles.statNum}>{stats.members}</span>
+          <span className={styles.statLabel}>Membri PR</span>
+        </div>
 
-      {/* Bottom tagline */}
-      <div className={styles.bottomBar}>
-        <span>Panel PR · Sistem Management</span>
-        <span className={styles.dot}>·</span>
-        <span>{new Date().toLocaleDateString('ro-RO', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}</span>
-      </div>
+        {/* Stat: active */}
+        <div className={`${styles.cell} ${styles.statCell}`}>
+          <span className={styles.statNum} style={{ color:'var(--green)' }}>{stats.active}</span>
+          <span className={styles.statLabel}>Activi</span>
+        </div>
+
+        {/* Dashboard tile */}
+        <button className={`${styles.cell} ${styles.tile} ${styles.tileWide}`} onClick={() => go('/dashboard')}>
+          <div className={styles.tileIcon} style={{ '--tc':'139,92,246' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="22" height="22">
+              <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+              <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+            </svg>
+          </div>
+          <div className={styles.tileText}>
+            <span className={styles.tileLabel}>Dashboard</span>
+            <span className={styles.tileDesc}>Statistici & overview general</span>
+          </div>
+          <svg className={styles.tileArrow} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16"><path d="M7 17 17 7M7 7h10v10"/></svg>
+        </button>
+
+        {/* Members tile */}
+        <button className={`${styles.cell} ${styles.tile}`} onClick={() => go('/members')}>
+          <div className={styles.tileIcon} style={{ '--tc':'99,102,241' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="20" height="20">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </div>
+          <div className={styles.tileText}>
+            <span className={styles.tileLabel}>Membri</span>
+            <span className={styles.tileDesc}>Lista completă</span>
+          </div>
+          <svg className={styles.tileArrow} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16"><path d="M7 17 17 7M7 7h10v10"/></svg>
+        </button>
+
+        {/* Events tile - tall */}
+        <button className={`${styles.cell} ${styles.tile} ${styles.tileTall}`} onClick={() => go('/events')}>
+          <div className={styles.tileIcon} style={{ '--tc':'245,158,11' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="22" height="22">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+          </div>
+          <div className={styles.tileText}>
+            <span className={styles.tileLabel}>Evenimente</span>
+            <span className={styles.tileDesc}>Gestionare & prezență</span>
+          </div>
+          <div className={styles.tileBigStat}>
+            <span className={styles.tileBigNum}>{stats.weekEvents}</span>
+            <span className={styles.tileBigLabel}>săptămâna asta</span>
+          </div>
+          <svg className={styles.tileArrow} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16"><path d="M7 17 17 7M7 7h10v10"/></svg>
+        </button>
+
+        {/* Whitelist tile */}
+        {canWhitelist && (
+          <button className={`${styles.cell} ${styles.tile}`} onClick={() => go('/whitelist')}>
+            <div className={styles.tileIcon} style={{ '--tc':'16,185,129' }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="20" height="20">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+            </div>
+            <div className={styles.tileText}>
+              <span className={styles.tileLabel}>Whitelist</span>
+              <span className={styles.tileDesc}>Acces & permisiuni</span>
+            </div>
+            <svg className={styles.tileArrow} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16"><path d="M7 17 17 7M7 7h10v10"/></svg>
+          </button>
+        )}
+
+        {/* Reports tile - soon */}
+        <div className={`${styles.cell} ${styles.tile} ${styles.tileSoon}`}>
+          <div className={styles.tileIcon} style={{ '--tc':'59,130,246' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="20" height="20">
+              <path d="M18 20V10M12 20V4M6 20v-6"/>
+            </svg>
+          </div>
+          <div className={styles.tileText}>
+            <span className={styles.tileLabel}>Rapoarte</span>
+            <span className={styles.tileDesc}>În curând</span>
+          </div>
+          <span className={styles.soonTag}>Soon</span>
+        </div>
+
+        {/* Info tile - soon */}
+        <div className={`${styles.cell} ${styles.tile} ${styles.tileSoon}`}>
+          <div className={styles.tileIcon} style={{ '--tc':'236,72,153' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="20" height="20">
+              <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
+            </svg>
+          </div>
+          <div className={styles.tileText}>
+            <span className={styles.tileLabel}>Informații</span>
+            <span className={styles.tileDesc}>Regulament & reguli</span>
+          </div>
+          <span className={styles.soonTag}>Soon</span>
+        </div>
+
+      </main>
+
+      <div className={styles.footer}>Panel PR · Sistem Management</div>
     </div>
   );
 }
