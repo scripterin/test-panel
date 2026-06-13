@@ -1,0 +1,15 @@
+rules_version = '2';
+
+// ============================================
+// PANEL PR · Firestore Security Rules (varianta simpla)
+// Acces deschis - toate citirile si scrierile sunt permise
+// folosind doar config-ul public din lib/firebase.js
+// ============================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
